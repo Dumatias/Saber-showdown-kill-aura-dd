@@ -1,0 +1,76 @@
+local player = game.Players.LocalPlayer
+local screenGui = Instance.new("ScreenGui", player.PlayerGui)
+screenGui.ResetOnSpawn = false -- Impede que a UI desapareça ao morrer
+
+-- Criar botão de ativação/desativação no canto inferior direito
+local toggleButton = Instance.new("TextButton", screenGui)
+toggleButton.Size = UDim2.new(0, 120, 0, 50)
+toggleButton.Position = UDim2.new(1, -130, 1, -60) -- Canto inferior direito
+toggleButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.TextSize = 18
+toggleButton.Text = "Ativar Ataques"
+
+local UICorner = Instance.new("UICorner", toggleButton)
+UICorner.CornerRadius = UDim.new(0.2, 0) -- Bordas arredondadas
+
+-- Variável para ativar/desativar os ataques
+local ataqueAtivado = false
+local ataqueConnection = nil
+
+-- Função para atacar todos os jogadores no servidor
+local function atacarTodos()
+    if ataqueConnection then
+        ataqueConnection:Disconnect() -- Garante que não tenha mais de um loop ativo
+    end
+
+    if ataqueAtivado then
+        ataqueConnection = game:GetService("RunService").RenderStepped:Connect(function()
+            local replicatedStorage = game:GetService("ReplicatedStorage")
+            local lightsaberRemotes = replicatedStorage:WaitForChild("LightsaberRemotes")
+
+            -- Inicia o ataque
+            lightsaberRemotes:WaitForChild("MouseDown"):FireServer()
+
+            local args = {
+                [1] = 3,
+                [2] = 1,
+                [3] = false,
+                [4] = false
+            }
+            lightsaberRemotes:WaitForChild("Attack"):FireServer(unpack(args))
+            lightsaberRemotes:WaitForChild("MouseUp"):FireServer()
+            lightsaberRemotes:WaitForChild("Swing"):FireServer()
+
+            -- Percorre todos os jogadores do servidor e ataca eles
+            for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+                if targetPlayer ~= player and targetPlayer.Character then
+                    local args2 = {
+                        [1] = targetPlayer.Character
+                    }
+                    lightsaberRemotes:WaitForChild("OnHit"):FireServer(unpack(args2))
+                end
+            end
+
+            -- Reseta a direção do ataque para continuar atacando rapidamente
+            lightsaberRemotes:WaitForChild("ResetSwingDirection"):FireServer()
+        end)
+    end
+end
+
+-- Alternar ativação ao clicar no botão
+toggleButton.MouseButton1Click:Connect(function()
+    ataqueAtivado = not ataqueAtivado
+    if ataqueAtivado then
+        toggleButton.Text = "Desativar Ataques"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Verde quando ativado
+        atacarTodos() -- Inicia os ataques contínuos em todos os jogadores
+    else
+        if ataqueConnection then
+            ataqueConnection:Disconnect() -- Para os ataques
+            ataqueConnection = nil
+        end
+        toggleButton.Text = "Ativar Ataques"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Preto quando desativado
+    end
+end)
